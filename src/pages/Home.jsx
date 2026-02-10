@@ -258,8 +258,6 @@ const Home = () => {
             <div 
               className="glass-effect rounded-3xl p-8 sm:p-12 lg:p-16 hover-glow relative overflow-hidden"
               style={{ backgroundColor: 'transparent' }}
-              onMouseEnter={() => setIsPaused(true)}
-              onMouseLeave={() => setIsPaused(false)}
             >
               {/* Removed background gradient effect for transparency */}
               
