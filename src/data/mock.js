@@ -6,7 +6,7 @@ export const companyInfo = {
   description: "Fast track your business on an information super highway",
   established: "2017",
   location: "India",
-  email: "info@visabitech.com",
+  email: "admin@visabitech.com",
   phone: "+91 98716 62445"
 };
 
