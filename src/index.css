@@ -121,3 +121,16 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+/* Contact form select — match dark theme, dropdown options + arrow */
+.contact-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2367e8f9' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    padding-right: 2.5rem;
+}
+.contact-select option {
+    background: #1e293b;
+    color: #f1f5f9;
+}

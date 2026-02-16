@@ -7,7 +7,7 @@ export const companyInfo = {
   established: "2017",
   location: "India",
   email: "info@visabitech.com",
-  phone: "+91 XXX XXX XXXX"
+  phone: "+91 98716 62445"
 };
 
 // Local images in public/images (faster load, no external requests)

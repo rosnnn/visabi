@@ -1,23 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin, Linkedin, Twitter, Facebook } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import { companyInfo, navigationMenu } from '../data/mock';
-import { useToast } from '../hooks/use-toast';
 import logo from "../assets/logo.png";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  const { toast } = useToast();
 
   // Quick Links: Home, About Us, Solutions, Success Stories, Contact
   const quickLinks = navigationMenu.map((item) => ({
     ...item,
     path: item.path === '/solutions' ? '/solutions/trading' : item.path,
   }));
-
-  const showComingSoon = () => {
-    toast({ title: 'Coming soon', description: 'This feature will be available shortly.' });
-  };
 
   return (
     <footer className="footer-bg relative overflow-hidden">
@@ -45,32 +39,6 @@ const Footer = () => {
             <p className="text-gray-400 text-sm leading-relaxed">
               Leading digital transformation through innovative ERP solutions. Empowering businesses since {companyInfo.established}.
             </p>
-            <div className="flex space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={showComingSoon}
-                className="w-10 h-10 rounded-lg glass-effect flex items-center justify-center text-gray-400 hover:text-cyan-400 hover-glow transition-all duration-200"
-                aria-label="LinkedIn"
-              >
-                <Linkedin className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={showComingSoon}
-                className="w-10 h-10 rounded-lg glass-effect flex items-center justify-center text-gray-400 hover:text-cyan-400 hover-glow transition-all duration-200"
-                aria-label="Twitter"
-              >
-                <Twitter className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={showComingSoon}
-                className="w-10 h-10 rounded-lg glass-effect flex items-center justify-center text-gray-400 hover:text-cyan-400 hover-glow transition-all duration-200"
-                aria-label="Facebook"
-              >
-                <Facebook className="w-5 h-5" />
-              </button>
-            </div>
           </div>
 
           {/* Quick Links — Home, About Us, Solutions, Success Stories, Contact */}

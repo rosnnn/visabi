@@ -1,40 +1,55 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Phone, Monitor, Compass, Mail, MapPin, Send } from 'lucide-react';
-import { contactInfo, companyInfo, heroImages } from '../data/mock';
+import { Send } from 'lucide-react';
+import { contactInfo, heroImages } from '../data/mock';
 import { useToast } from '../hooks/use-toast';
+
+// Contact form API. Override with REACT_APP_CONTACT_API_URL in .env (e.g. http://localhost:5000 for local backend).
+const CONTACT_API_BASE = 'http://13.51.171.30:5000';
+const CONTACT_API_URL = process.env.REACT_APP_CONTACT_API_URL || CONTACT_API_BASE;
+const CONTACT_ENDPOINT = `${CONTACT_API_URL.replace(/\/$/, '')}/api/contact`;
+const RECAPTCHA_SITE_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY || '6LfijWwsAAAAAHJORCQt9YY-qQMZruy5L1xiWsgg';
 
 const Contact = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const observerRef = useRef(null);
   const formSectionRef = useRef(null);
-  const [activeForm, setActiveForm] = useState(null);
+  const recaptchaRef = useRef(null);
+  const recaptchaWidgetIdRef = useRef(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     company: '',
     message: '',
-    requestType: ''
+    requestType: contactInfo.callToActions[1]?.title || 'Request a Demo',
   });
 
-  // Open form and scroll to it when navigating with ?open=form (e.g. from CTA buttons)
+  // Prevent reCAPTCHA or network "Timeout" from surfacing as uncaught (avoids overlay)
   useEffect(() => {
-    if (searchParams.get('open') === 'form') {
-      setActiveForm('Request a Demo');
-      setFormData((prev) => ({ ...prev, requestType: 'Request a Demo' }));
-    }
-  }, [searchParams]);
+    const onRejection = (e) => {
+      if (e?.reason?.message === 'Timeout' || e?.reason?.name === 'Timeout') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, []);
 
+  // When opening with ?open=form, scroll to form and set request type to Request a Demo
   useEffect(() => {
-    if (activeForm && searchParams.get('open') === 'form' && formSectionRef.current) {
+    if (searchParams.get('open') === 'form' && formSectionRef.current) {
+      setFormData((prev) => ({ ...prev, requestType: 'Request a Demo' }));
       const t = setTimeout(() => {
         formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 150);
       return () => clearTimeout(t);
     }
-  }, [activeForm, searchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -59,18 +74,6 @@ const Contact = () => {
     };
   }, []);
 
-  const iconMap = {
-    'phone': Phone,
-    'monitor': Monitor,
-    'compass': Compass,
-    'mail': Mail
-  };
-
-  const getIcon = (iconName) => {
-    const IconComponent = iconMap[iconName];
-    return IconComponent ? <IconComponent className="w-6 h-6" /> : null;
-  };
-
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
@@ -78,17 +81,114 @@ const Contact = () => {
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    toast({
-      title: "Coming soon",
-      description: "This feature will be available shortly.",
-    });
-  };
+  // Load reCAPTCHA v2 checkbox (standard api.js with render=explicit) — Enterprise/v3 scripts don't have .render()
+  useEffect(() => {
+    if (!RECAPTCHA_SITE_KEY) return;
+    const RECAPTCHA_SCRIPT_URL = 'https://www.google.com/recaptcha/api.js?onload=__recaptchaOnLoad&render=explicit';
+    const renderWidget = () => {
+      try {
+        if (!recaptchaRef.current) return;
+        if (recaptchaWidgetIdRef.current != null) return;
+        if (typeof window.grecaptcha === 'undefined' || typeof window.grecaptcha.render !== 'function') return;
+        recaptchaRef.current.innerHTML = '';
+        recaptchaWidgetIdRef.current = window.grecaptcha.render(recaptchaRef.current, {
+          sitekey: RECAPTCHA_SITE_KEY,
+          theme: 'dark',
+          callback: (token) => { try { setRecaptchaToken(token); } catch (_) {} },
+        });
+      } catch (err) {
+        console.warn('reCAPTCHA render failed', err);
+      }
+    };
+    // Remove any existing recaptcha script so we load the correct v2 explicit one (avoids Enterprise/v3 which have no .render)
+    document.querySelectorAll('script[src*="google.com/recaptcha"]').forEach((s) => s.remove());
+    window.__recaptchaOnLoad = () => {
+      try {
+        renderWidget();
+      } catch (e) {
+        console.warn('reCAPTCHA onload failed', e);
+      }
+      delete window.__recaptchaOnLoad;
+    };
+    const script = document.createElement('script');
+    script.src = RECAPTCHA_SCRIPT_URL;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+      delete window.__recaptchaOnLoad;
+      console.warn('reCAPTCHA script failed to load');
+    };
+    document.head.appendChild(script);
+    const t = setTimeout(renderWidget, 800);
+    return () => clearTimeout(t);
+  }, []);
 
-  const openForm = (type) => {
-    setActiveForm(type);
-    setFormData({ ...formData, requestType: type });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!recaptchaToken) {
+      toast({
+        title: 'Complete the captcha',
+        description: 'Please verify you\'re not a robot above before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(CONTACT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || '',
+          company: formData.company || '',
+          message: formData.message,
+          requestType: formData.requestType || 'Request a Demo',
+        }),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          title: 'Could not send',
+          description: data.message || data.error || 'Something went wrong. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setSubmitting(false);
+      toast({
+        title: 'Message sent',
+        description: "We'll get back to you shortly.",
+      });
+      setFormData((prev) => ({ ...prev, name: '', email: '', phone: '', company: '', message: '' }));
+      if (recaptchaWidgetIdRef.current != null && window.grecaptcha?.reset) {
+        try {
+          window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+        } catch (_) {}
+      }
+      setRecaptchaToken('');
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        toast({
+          title: 'Request timed out',
+          description: 'Please check your connection and try again.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: err?.message || 'Please check your connection and try again.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -114,45 +214,33 @@ const Contact = () => {
         </div>
       </section>
 
-      {/* CTA Cards */}
-      <section className="py-20 relative">
-        <div className="absolute inset-0 bg-slate-950"></div>
+      {/* Contact form only */}
+      <section id="contact-form" ref={formSectionRef} className="py-20 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"></div>
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {contactInfo.callToActions.map((cta, index) => (
-              <div 
-                key={cta.id}
-                className="glass-effect rounded-3xl p-8 hover-lift hover-glow cursor-pointer fade-in-up-init group"
-                style={{ animationDelay: `${index * 100}ms` }}
-                onClick={() => openForm(cta.title)}
-              >
-                <div className="w-14 h-14 bg-gradient-secondary rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  {getIcon(cta.icon)}
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">{cta.title}</h3>
-                <p className="text-slate-300 text-sm leading-relaxed">{cta.description}</p>
+          <div className="max-w-2xl mx-auto">
+            <div className="glass-effect-dark rounded-3xl p-8 lg:p-12 animate-scale-in">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-white mb-2">Get in touch</h2>
+                <p className="text-slate-300">Fill out the form below and we'll get back to you shortly</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Contact Form — scroll target when opening from ?open=form */}
-      {activeForm && (
-        <section id="contact-form" ref={formSectionRef} className="py-20 relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"></div>
-
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="max-w-2xl mx-auto">
-              <div className="glass-effect-dark rounded-3xl p-8 lg:p-12 animate-scale-in">
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-2">{activeForm}</h2>
-                  <p className="text-slate-300">Fill out the form below and we'll get back to you shortly</p>
+              <form onSubmit={(e) => { handleSubmit(e).catch(() => {}); }} className="space-y-6">
+                <div>
+                  <label className="block text-white font-medium mb-2 text-sm">I would like to *</label>
+                  <select
+                    name="requestType"
+                    value={formData.requestType}
+                    onChange={handleInputChange}
+                    className="contact-select w-full px-4 py-3 bg-slate-800 border border-cyan-500/30 rounded-xl text-white focus:outline-none focus:border-cyan-400 transition-colors duration-200 appearance-none cursor-pointer"
+                  >
+                    {contactInfo.callToActions.map((cta) => (
+                      <option key={cta.id} value={cta.title}>{cta.title}</option>
+                    ))}
+                  </select>
                 </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-white font-medium mb-2 text-sm">Name *</label>
                       <input
@@ -188,7 +276,7 @@ const Contact = () => {
                         value={formData.phone}
                         onChange={handleInputChange}
                         className="w-full px-4 py-3 bg-slate-800/50 border border-cyan-500/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 transition-colors duration-200"
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="+91 98716 62445"
                       />
                     </div>
                     <div>
@@ -217,20 +305,22 @@ const Contact = () => {
                     ></textarea>
                   </div>
 
+                  <div className="rounded-xl border border-cyan-500/30 bg-slate-800/50 p-4">
+                    <p className="text-white font-medium mb-3 text-sm">Security check</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div ref={recaptchaRef} className="inline-block [&_iframe]:rounded-lg" />
+                      <p className="text-slate-400 text-xs">Complete the captcha to unlock the Submit button.</p>
+                    </div>
+                  </div>
+
                   <div className="flex gap-4">
                     <button
                       type="submit"
-                      className="btn-primary px-8 py-3 rounded-xl text-white font-semibold flex-1 inline-flex items-center justify-center space-x-2"
+                      disabled={submitting || !recaptchaToken}
+                      className="btn-primary px-8 py-3 rounded-xl text-white font-semibold flex-1 inline-flex items-center justify-center space-x-2 disabled:opacity-60 disabled:pointer-events-none"
                     >
-                      <span>Submit Request</span>
+                      <span>{submitting ? 'Sending…' : 'Submit'}</span>
                       <Send className="w-5 h-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveForm(null)}
-                      className="btn-glass px-8 py-3 rounded-xl text-white font-semibold"
-                    >
-                      Cancel
                     </button>
                   </div>
                 </form>
@@ -238,55 +328,8 @@ const Contact = () => {
             </div>
           </div>
         </section>
-      )}
 
-      {/* Contact Info */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-slate-950"></div>
-        <div className="absolute inset-0 pattern-dots opacity-10"></div>
-
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="glass-effect rounded-3xl p-8 hover-lift fade-in-up-init">
-                <div className="w-12 h-12 bg-gradient-secondary rounded-xl flex items-center justify-center mb-6">
-                  <Mail className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">Email Us</h3>
-                <a 
-                  href={`mailto:${companyInfo.email}`}
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors duration-200"
-                >
-                  {companyInfo.email}
-                </a>
-              </div>
-
-              <div className="glass-effect rounded-3xl p-8 hover-lift fade-in-up-init delay-100">
-                <div className="w-12 h-12 bg-gradient-secondary rounded-xl flex items-center justify-center mb-6">
-                  <Phone className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">Call Us</h3>
-                <a 
-                  href={`tel:${companyInfo.phone}`}
-                  className="text-cyan-400 hover:text-cyan-300 transition-colors duration-200"
-                >
-                  {companyInfo.phone}
-                </a>
-              </div>
-
-              <div className="glass-effect rounded-3xl p-8 hover-lift fade-in-up-init delay-200">
-                <div className="w-12 h-12 bg-gradient-secondary rounded-xl flex items-center justify-center mb-6">
-                  <MapPin className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3">Location</h3>
-                <p className="text-cyan-400">{companyInfo.location}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Map or Additional Info */}
+      {/* CTA section */}
       <section className="py-20 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"></div>
 

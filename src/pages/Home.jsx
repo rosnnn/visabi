@@ -224,10 +224,10 @@ const Home = () => {
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 animate-fade-in-up delay-300 w-full max-w-md sm:max-w-none sm:w-auto mx-auto">
               <Link 
-                to="/contact?open=form"
+                to="/contact"
                 className="btn-primary px-6 py-3.5 sm:px-8 sm:py-4 rounded-xl text-white font-semibold text-base sm:text-lg inline-flex items-center justify-center space-x-2 group min-w-0"
               >
-                <span>Request a Demo</span>
+                <span>Get in touch</span>
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 group-hover:translate-x-1 transition-transform duration-200" />
               </Link>
               <Link 

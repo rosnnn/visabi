@@ -161,15 +161,17 @@ const SuccessStoryCaseStudy = () => {
         </div>
       </div>
 
-      {/* CTA */}
+      {/* CTA — stacked on mobile with clear spacing so buttons never look attached */}
       <section className="py-16 border-t border-slate-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <Link to="/success-stories" className="btn-glass px-8 py-4 rounded-xl text-white font-semibold inline-flex items-center gap-2">
-            <ArrowLeft className="w-5 h-5" /> All Success Stories
-          </Link>
-          <Link to="/contact?open=form" className="btn-primary px-8 py-4 rounded-xl text-white font-semibold inline-flex items-center gap-2 ml-4">
-            Request a Demo <ArrowRight className="w-5 h-5" />
-          </Link>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-5 sm:gap-4 max-w-md sm:max-w-none mx-auto">
+            <Link to="/success-stories" className="btn-glass px-8 py-4 rounded-xl text-white font-semibold inline-flex items-center justify-center gap-2 order-1">
+              <ArrowLeft className="w-5 h-5" /> All Success Stories
+            </Link>
+            <Link to="/contact?open=form" className="btn-primary px-8 py-4 rounded-xl text-white font-semibold inline-flex items-center justify-center gap-2 order-2">
+              Request a Demo <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
       </section>
     </div>
