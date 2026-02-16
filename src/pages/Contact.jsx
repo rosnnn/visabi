@@ -4,10 +4,15 @@ import { Send } from 'lucide-react';
 import { contactInfo, heroImages } from '../data/mock';
 import { useToast } from '../hooks/use-toast';
 
-// Contact form API. Override with REACT_APP_CONTACT_API_URL in .env (e.g. http://localhost:5000 for local backend).
-const CONTACT_API_BASE = 'http://13.51.171.30:5000';
-const CONTACT_API_URL = process.env.REACT_APP_CONTACT_API_URL || CONTACT_API_BASE;
-const CONTACT_ENDPOINT = `${CONTACT_API_URL.replace(/\/$/, '')}/api/contact`;
+// In production (Vercel) use same-origin /api/contact so serverless proxy forwards to EC2 (avoids mixed content).
+// In development or when REACT_APP_CONTACT_API_URL is set, use that URL.
+const isProd = process.env.NODE_ENV === 'production';
+const CONTACT_API_URL =
+  process.env.REACT_APP_CONTACT_API_URL ??
+  (isProd ? '' : 'http://13.51.171.30:5000');
+const CONTACT_ENDPOINT = CONTACT_API_URL
+  ? `${CONTACT_API_URL.replace(/\/$/, '')}/api/contact`
+  : '/api/contact';
 const RECAPTCHA_SITE_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY || '6LfijWwsAAAAAHJORCQt9YY-qQMZruy5L1xiWsgg';
 
 const Contact = () => {
