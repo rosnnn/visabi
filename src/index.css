@@ -134,3 +134,8 @@ code {
     background: #1e293b;
     color: #f1f5f9;
 }
+
+/* Contact reCAPTCHA: responsive, no leak; parent uses overflow-x-auto on small screens */
+.recaptcha-wrapper {
+    min-width: 0;
+}

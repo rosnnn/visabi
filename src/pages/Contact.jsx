@@ -154,6 +154,7 @@ const Contact = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setSubmitting(false);
         toast({
           title: 'Could not send',
           description: data.message || data.error || 'Something went wrong. Please try again.',
@@ -174,6 +175,7 @@ const Contact = () => {
       }
       setRecaptchaToken('');
     } catch (err) {
+      setSubmitting(false);
       if (err?.name === 'AbortError') {
         toast({
           title: 'Request timed out',
@@ -183,7 +185,7 @@ const Contact = () => {
       } else {
         toast({
           title: 'Error',
-          description: err?.message || 'Please check your connection and try again.',
+          description: err?.message || 'Network or server error. Please try again.',
           variant: 'destructive',
         });
       }
@@ -307,11 +309,13 @@ const Contact = () => {
                     ></textarea>
                   </div>
 
-                  <div className="rounded-xl border border-cyan-500/30 bg-slate-800/50 p-4">
+                  <div className="rounded-xl border border-cyan-500/30 bg-slate-800/50 p-4 overflow-hidden">
                     <p className="text-white font-medium mb-3 text-sm">Security check</p>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div ref={recaptchaRef} className="inline-block [&_iframe]:rounded-lg" />
-                      <p className="text-slate-400 text-xs">Complete the captcha to unlock the Submit button.</p>
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap items-start gap-3">
+                      <div className="w-full max-w-full overflow-x-auto">
+                        <div ref={recaptchaRef} className="recaptcha-wrapper inline-block [&_iframe]:rounded-lg [&_iframe]:max-w-full" />
+                      </div>
+                      <p className="text-slate-400 text-xs flex-shrink-0">Complete the captcha to unlock the Submit button.</p>
                     </div>
                   </div>
 
