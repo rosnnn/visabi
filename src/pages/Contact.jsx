@@ -4,15 +4,12 @@ import { Send } from 'lucide-react';
 import { contactInfo, heroImages } from '../data/mock';
 import { useToast } from '../hooks/use-toast';
 
-// In production (Vercel) use same-origin /api/contact so serverless proxy forwards to EC2 (avoids mixed content).
-// In development or when REACT_APP_CONTACT_API_URL is set, use that URL.
-const isProd = process.env.NODE_ENV === 'production';
-const CONTACT_API_URL =
-  process.env.REACT_APP_CONTACT_API_URL ??
-  (isProd ? '' : 'http://13.51.171.30:5000');
-const CONTACT_ENDPOINT = CONTACT_API_URL
-  ? `${CONTACT_API_URL.replace(/\/$/, '')}/api/contact`
-  : '/api/contact';
+// Avoid mixed content: if page is HTTPS, always use same-origin /api/contact (Vercel proxy). Else use backend URL.
+function getContactEndpoint() {
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:') return '/api/contact';
+  const url = process.env.REACT_APP_CONTACT_API_URL || 'http://13.51.171.30:5000';
+  return url ? `${url.replace(/\/$/, '')}/api/contact` : '/api/contact';
+}
 const RECAPTCHA_SITE_KEY = process.env.REACT_APP_RECAPTCHA_SITE_KEY || '6LfijWwsAAAAAHJORCQt9YY-qQMZruy5L1xiWsgg';
 
 const Contact = () => {
@@ -142,7 +139,7 @@ const Contact = () => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const res = await fetch(CONTACT_ENDPOINT, {
+      const res = await fetch(getContactEndpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
